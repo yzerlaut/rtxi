@@ -9,5 +9,4 @@ SUBDIRS = \
 	model_loader \
 	userprefs \
 	connector \
-	data_recorder \
 	oscilloscope

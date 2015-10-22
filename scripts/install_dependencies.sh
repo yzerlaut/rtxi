@@ -42,43 +42,15 @@ echo "Checking dependencies..."
 sudo apt-get update
 sudo apt-get -y upgrade
 sudo apt-get -y install autotools-dev automake libtool kernel-package gcc g++ \
-                        gdb fakeroot crash kexec-tools makedumpfile \
-                        kernel-wedge libncurses5-dev libelf-dev binutils-dev \
-                        libgsl0-dev libboost-dev git vim emacs lshw stress \
-                        libqt5svg5-dev libqt5opengl5 libqt5gui5 libqt5core5a \
-                        libqt5xml5 qt5-default
+                        gdb fakeroot kexec-tools kernel-wedge libncurses5-dev \
+                        libelf-dev binutils-dev libgsl0-dev libboost-dev git\
+                        vim stress libqt5svg5-dev libqt5opengl5 \
+                        libqt5gui5 libqt5core5a libqt5xml5 qt5-default
 sudo apt-get -y build-dep linux
-
-if [ $? -eq 0 ]; then
-	echo "----->Package dependencies installed."
-else
-	echo "----->Package dependency installation failed."
-	exit
-fi
 
 # Start at top
 cd ${DEPS}
 
-# Installing HDF5
-echo "----->Checking for HDF5"
-
-if [ -f "/usr/include/hdf5.h" ]; then
-	echo "----->HDF5 already installed."
-else
-	echo "----->Installing HDF5..."
-	cd ${HDF}
-	tar xf hdf5-1.8.4.tar.bz2
-	cd hdf5-1.8.4
-	./configure --prefix=/usr
-	make -sj2
-	sudo make install
-	if [ $? -eq 0 ]; then
-			echo "----->HDF5 installed."
-	else
-		echo "----->HDF5 installation failed."
-		exit
-	fi
-fi
 
 # Installing Qwt
 echo "----->Checking for Qwt"
