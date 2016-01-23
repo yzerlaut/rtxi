@@ -23,18 +23,22 @@
 
 // For read operation, we consider the default subdevice index is 0 (AI)
 #define ID_SUBD 0
+
 // For simplicity sake, a maximum channel count is defined
 #define MAX_NB_CHAN 32
+
 // One hundred triggered scans by default
 #define NB_SCAN 1
-//i Default buffer size in bytes
+
+// Default buffer size in bytes
 #define BUF_SIZE 1024000
 
 // Buffer for data
 static unsigned char buf[BUF_SIZE];
+
 // Channels to acquire from
-// TODO: change to method that detects how many are available on card
-static char *str_chans = "0,1";//,2,3,4,5,6,7,8,9,10,11,12,13,14,15";//16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31";
+static char *str_chans = "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15";//16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31";
+
 // Data struture
 static unsigned int chans[MAX_NB_CHAN];
 
@@ -62,61 +66,32 @@ int dump_text(a4l_desc_t *dsc, a4l_cmd_t *cmd, unsigned char *buf, int size)
 {
 	static int cur_chan;
 	int i, err = 0, tmp_size = 0;
-	char *fmts[MAX_NB_CHAN];
 	a4l_chinfo_t *chans[MAX_NB_CHAN];
 
 	for (i = 0; i < cmd->nb_chan; i++) {
-		int width;
-
 		err = a4l_get_chinfo(dsc,cmd->idx_subd,cmd->chan_descs[i], &chans[i]);
 		if (err < 0) {
 			fprintf(stderr,"cmd_read: a4l_get_chinfo failed (ret=%d)\n",err);
-			goto out;
-		}
-
-		width = a4l_sizeof_chan(chans[i]);
-		if (width < 0) {
-			fprintf(stderr,"cmd_read: incoherent info for channel %d\n",cmd->chan_descs[i]);
-			err = width;
-			goto out;
-		}
-
-		switch(width) {
-			case 1:
-				fmts[i] = "0x%02x ";
-				break;
-			case 2:
-				fmts[i] = "0x%04x ";
-				break;
-			case 4:
-			default:
-				fmts[i] = "0x%08x ";
-				break;
+			return err;
 		}
 	}
 
-	FILE *pfile;
-	pfile = fopen("output.txt","a");
 	while (tmp_size < size) {
 		unsigned long value;
 		err = a4l_rawtoul(chans[cur_chan], &value, buf + tmp_size, 1);
+		printf("%f", value);
 		if (err < 0)
-			goto out;
-		fprintf(pfile, fmts[cur_chan], value);
+			return err;
 
 		// We assume a4l_sizeof_chan() cannot return because
 		// we already called it on the very same channel descriptor
 		tmp_size += a4l_sizeof_chan(chans[cur_chan]);
-		if(++cur_chan == cmd->nb_chan) {
-			fprintf(pfile, "\n");
+		if(++cur_chan == cmd->nb_chan)
+			printf("\n");
 			cur_chan = 0;
-		}
 	}
 
 	fflush(stdout);
-
-out:
-	return err;
 }
 
 AnalogyDevice::AnalogyDevice(a4l_desc_t *d,std::string name,IO::channel_t *chan,size_t size) : DAQ::Device(name,chan,size), dsc(*d) {
@@ -234,14 +209,14 @@ AnalogyDevice::AnalogyDevice(a4l_desc_t *d,std::string name,IO::channel_t *chan,
 		subdevice[DIO].chan = NULL;
 	}
 
-	asyncStatus = true;
+	//asyncStatus = true;
 	if(asyncStatus)
 	{
 		// Setup async
 		initAsync();
 
 		// Launch Recording Thread
-		//pthread_create(&thread, 0, bounce, this);
+		pthread_create(&thread, 0, bounce, this);
 	}
 
 	setActive(true);
@@ -578,8 +553,6 @@ void AnalogyDevice::initAsync(void) {
 	cmd.scan_end_arg = cmd.nb_chan;
 	cmd.stop_src = cmd.stop_arg != 0 ? TRIG_COUNT : TRIG_NONE;
 
-	printf("cmd_read: complex descriptor retrieved\n");
-
 	// Get the size of a single acquisition
 	for (i = 0; i < cmd.nb_chan; i++)
 	{
@@ -592,9 +565,6 @@ void AnalogyDevice::initAsync(void) {
 		scan_size += a4l_sizeof_chan(info);
 	}
 
-	printf("cmd_read: scan size = %u\n", scan_size);
-	printf("cmd_read: size to read = %u\n",	scan_size * cmd.stop_arg);
-
 	// Cancel any former command which might be in progress
 	a4l_snd_cancel(&dsc, cmd.idx_subd);
 
@@ -602,13 +572,11 @@ void AnalogyDevice::initAsync(void) {
 	ret = a4l_get_bufsize(&dsc, cmd.idx_subd, &buf_size);
 	if (ret < 0)
 		fprintf(stderr,"cmd_read: a4l_get_bufsize() failed (ret=%d)\n",ret);
-	printf("cmd_read: buffer size = %lu bytes\n", buf_size);
 
 	// Map the analog input subdevice buffer
 	ret = a4l_mmap(&dsc, cmd.idx_subd, buf_size, &map);
 	if (ret < 0)
 		fprintf(stderr,"cmd_read: a4l_mmap() failed (ret=%d)\n",ret);
-	printf("cmd_read: mmap performed successfully (map=0x%p)\n", map);
 }
 
 // Acquire data asynchronously and buffer in the background
@@ -625,7 +593,6 @@ void AnalogyDevice::readAsync()
 	ret = a4l_snd_command(&dsc, &cmd);
 	if (ret < 0)
 		fprintf(stderr,"cmd_read: a4l_snd_command failed (ret=%d)\n", ret);
-	//printf("cmd_read: command successfully sent\n");
 
 	unsigned long front;
 	front = 0;
@@ -637,7 +604,7 @@ void AnalogyDevice::readAsync()
 		// (In input case, we recover how many bytes are available to read)
 		ret = a4l_mark_bufrw(&dsc, cmd.idx_subd, front, &front);
 		if (ret == -ENOENT)
-			break;
+			return;
 		else if (ret < 0)
 			fprintf(stderr,"cmd_read: a4l_mark_bufrw() failed (ret=%d)\n",ret);
 
@@ -649,64 +616,41 @@ void AnalogyDevice::readAsync()
 		{
 			ret = a4l_poll(&dsc, cmd.idx_subd, A4L_INFINITE);
 			if (ret == 0)
-				break;
+				return;
 			else if (ret < 0)
 				fprintf(stderr,"cmd_read: a4l_poll() failed (ret=%d)\n",ret);
 		}
 
-		// Display the results
+		// Parse and package
+		//if (dump_text(&dsc,	&cmd,	&((unsigned char *)map)[cnt % buf_size],front) < 0)
+		//ret = -EIO;
+
 		static int cur_chan;
 		int i, err = 0, tmp_size = 0;
-		char *fmts[MAX_NB_CHAN];
 		a4l_chinfo_t *chans[MAX_NB_CHAN];
 
 		for (i = 0; i < cmd.nb_chan; i++) {
-			int width;
-
 			err = a4l_get_chinfo(&dsc,cmd.idx_subd,cmd.chan_descs[i], &chans[i]);
-			if (err < 0)
+			if (err < 0) {
 				fprintf(stderr,"cmd_read: a4l_get_chinfo failed (ret=%d)\n",err);
-
-			width = a4l_sizeof_chan(chans[i]);
-			if (width < 0) {
-				fprintf(stderr,"cmd_read: incoherent info for channel %d\n",cmd.chan_descs[i]);
-				err = width;
-			}
-
-			switch(width) {
-				case 1:
-					fmts[i] = "0x%02x ";
-					break;
-				case 2:
-					fmts[i] = "0x%04x ";
-					break;
-				case 4:
-				default:
-					fmts[i] = "0x%08x ";
-					break;
 			}
 		}
 
 		while (tmp_size < front) {
 			unsigned long value;
-			err = a4l_rawtoul(chans[cur_chan], &value, buf + tmp_size, 1);
-			fprintf(stdout, fmts[cur_chan], value);
+			err = a4l_rawtoul(chans[cur_chan], &value, &((unsigned char *)map)[cnt % buf_size] + tmp_size, 1);
+			printf("%d", value);
 
 			// We assume a4l_sizeof_chan() cannot return because
 			// we already called it on the very same channel descriptor
 			tmp_size += a4l_sizeof_chan(chans[cur_chan]);
-			if(++cur_chan == cmd.nb_chan) {
-				fprintf(stdout, "\n");
+			if(++cur_chan == cmd.nb_chan){
+				printf("\n");
 				cur_chan = 0;
 			}
 		}
 
 		fflush(stdout);
-
-		//if (dump_text(&dsc,	&cmd,	&((unsigned char *)map)[cnt % buf_size],front) < 0)
-		//ret = -EIO;
-
-		// Put results into circular buffer
 
 		// Update the counter
 		cnt += front;
@@ -718,7 +662,6 @@ void AnalogyDevice::readAsync()
 }
 
 void AnalogyDevice::read(void) {
-	readAsync();
 }
 
 void AnalogyDevice::write(void) {
