@@ -28,6 +28,7 @@
 #include <data_recorder.h>
 #include <iostream>
 #include <pthread.h>
+#include <time.h>
 
 #define QFileExistsEvent            (QEvent::User+0)
 #define QSetFileNameEditEvent       (QEvent::User+1)
@@ -357,6 +358,7 @@ void DataRecorder::openFile(const QString& filename)
 {
     Event::Object event(Event::OPEN_FILE_EVENT);
     event.setParam("filename", const_cast<char *> (filename.toLatin1().constData()));
+
     if (RT::OS::isRealtime())
         Event::Manager::getInstance()->postEventRT(&event);
     else
@@ -493,11 +495,11 @@ DataRecorder::Panel::Panel(QWidget *parent, size_t buffersize) :
     sampleGroup->setLayout(sampleLayout);
 
     // Create child widget and layout for file control
-    fileGroup = new QGroupBox(tr("File Control"));
+    fileGroup = new QGroupBox(tr("Datafile will be saved as  Control"));
     QHBoxLayout *fileLayout = new QHBoxLayout;
 
     // Create elements for file control
-    fileLayout->addWidget(new QLabel(tr("File Name:")));
+    fileLayout->addWidget(new QLabel(tr("Folder:")));
     fileNameEdit = new QLineEdit;
     fileNameEdit->setReadOnly(true);
     fileLayout->addWidget(fileNameEdit);
@@ -832,8 +834,18 @@ void DataRecorder::Panel::changeDataFile(void)
     // Write this directory to the user prefs as most recently used
     userprefs.setValue("/dirs/data", fileDialog.directory().path());
 
+    // Set filename according to date and time
+    
+    QString filename2 = fileDialog.directory().path(); // Change to Folder Directory 
+    time_t now=time(0);
+    char buffer[26];
+    strftime(buffer, 26, "%Y-%m-%d_%H:%M:%S", localtime(&now));
+    filename2 += "/";
+    filename2 += buffer;
+    filename2 += ".RTXI.h5";
+       
     // Post to event queue
-    OpenFileEvent RTevent(filename, fifo);
+    OpenFileEvent RTevent(filename2, fifo);
     RT::System::getInstance()->postEvent(&RTevent);
 }
 
