@@ -495,17 +495,17 @@ DataRecorder::Panel::Panel(QWidget *parent, size_t buffersize) :
     sampleGroup->setLayout(sampleLayout);
 
     // Create child widget and layout for file control
-    fileGroup = new QGroupBox(tr("Datafile will be saved as  Control"));
+    fileGroup = new QGroupBox(tr("Datafile will be stored as \"*time*.RTXI.h5\" grouped in a \"*day*/\" folder"));
     QHBoxLayout *fileLayout = new QHBoxLayout;
 
     // Create elements for file control
-    fileLayout->addWidget(new QLabel(tr("Folder:")));
-    fileNameEdit = new QLineEdit;
-    fileNameEdit->setReadOnly(true);
-    fileLayout->addWidget(fileNameEdit);
-    QPushButton *fileChangeButton = new QPushButton("Choose File");
-    fileLayout->addWidget(fileChangeButton);
-    QObject::connect(fileChangeButton,SIGNAL(released(void)),this,SLOT(changeDataFile(void)));
+    fileLayout->addWidget(new QLabel(tr("Root folder:")));
+    folderNameEdit = new QLineEdit;
+    folderNameEdit->setReadOnly(true);
+    fileLayout->addWidget(folderNameEdit);
+    QPushButton *folderChangeButton = new QPushButton("Choose Directory");
+    fileLayout->addWidget(folderChangeButton);
+    QObject::connect(folderChangeButton,SIGNAL(released(void)),this,SLOT(changeRootFolder(void)));
 
     fileLayout->addWidget(new QLabel(tr("Downsample \nRate:")));
     downsampleSpin = new QSpinBox(this);
@@ -536,7 +536,8 @@ DataRecorder::Panel::Panel(QWidget *parent, size_t buffersize) :
     startRecordButton = new QPushButton("Start Recording");
     QObject::connect(startRecordButton,SIGNAL(released(void)),this,SLOT(startRecordClicked(void)));
     buttonLayout->addWidget(startRecordButton);
-    startRecordButton->setEnabled(false);
+    // startRecordButton->setEnabled(false);
+    startRecordButton->setEnabled(true);
     stopRecordButton = new QPushButton("Stop Recording");
     QObject::connect(stopRecordButton,SIGNAL(released(void)),this,SLOT(stopRecordClicked(void)));
     buttonLayout->addWidget(stopRecordButton);
@@ -546,7 +547,7 @@ DataRecorder::Panel::Panel(QWidget *parent, size_t buffersize) :
     buttonLayout->addWidget(closeButton);
     recordStatus = new QLabel;
     buttonLayout->addWidget(recordStatus);
-    recordStatus->setText("Not ready.");
+    recordStatus->setText("Ready.");
     recordStatus->setFrameStyle(QFrame::Panel | QFrame::Sunken);
     recordStatus->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
 
@@ -598,6 +599,12 @@ DataRecorder::Panel::Panel(QWidget *parent, size_t buffersize) :
     prev_input = 0.0;
     count = 0;
     setActive(true);
+
+    // Initialize folder and data
+    QSettings userprefs;
+    userprefs.setPath(QSettings::NativeFormat, QSettings::SystemScope, getenv("HOME"));
+    root_dir = userprefs.value("/dirs/data", getenv("HOME")).toString();
+    folderNameEdit->setText(root_dir);
 }
 
 // Destructor for Panel
@@ -802,51 +809,20 @@ void DataRecorder::Panel::buildChannelList(void)
 }
 
 // Slot for changing data file
-void DataRecorder::Panel::changeDataFile(void)
+void DataRecorder::Panel::changeRootFolder(void)
 {
-    QFileDialog fileDialog(this);
-    fileDialog.setFileMode(QFileDialog::AnyFile);
-    fileDialog.setWindowTitle("Select Data File");
 
-    QSettings userprefs;
-    userprefs.setPath(QSettings::NativeFormat, QSettings::SystemScope, "/usr/local/share/rtxi/");
-    fileDialog.setDirectory(userprefs.value("/dirs/data", getenv("HOME")).toString());
+  QSettings userprefs;
+  userprefs.setPath(QSettings::NativeFormat, QSettings::SystemScope, getenv("HOME"));
 
-    QStringList filterList;
-    filterList.push_back("HDF5 files (*.h5)");
-    filterList.push_back("All files (*.*)");
-    fileDialog.setNameFilters(filterList);
-    fileDialog.selectNameFilter("HDF5 files (*.h5)");
+  root_dir = QFileDialog::getExistingDirectory(this,
+					       tr("Choose Directory"),
+					       userprefs.value("/dirs/data", getenv("HOME")).toString(),
+					       QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+  folderNameEdit->setText(root_dir);
 
-    QStringList files;
-    if(fileDialog.exec())
-        files = fileDialog.selectedFiles();
-
-    QString filename;
-    if(files.isEmpty() || files[0] == NULL || files[0] == "/" )
-        return;
-    else
-        filename = files[0];
-
-    if (!filename.toLower().endsWith(QString(".h5")))
-        filename += ".h5";
-
-    // Write this directory to the user prefs as most recently used
-    userprefs.setValue("/dirs/data", fileDialog.directory().path());
-
-    // Set filename according to date and time
-    
-    QString filename2 = fileDialog.directory().path(); // Change to Folder Directory 
-    time_t now=time(0);
-    char buffer[26];
-    strftime(buffer, 26, "%Y-%m-%d_%H:%M:%S", localtime(&now));
-    filename2 += "/";
-    filename2 += buffer;
-    filename2 += ".RTXI.h5";
-       
-    // Post to event queue
-    OpenFileEvent RTevent(filename2, fifo);
-    RT::System::getInstance()->postEvent(&RTevent);
+  // Write this directory to the user prefs as most recently used
+  userprefs.setValue("/dirs/data", root_dir);
 }
 
 // Insert channel to record into list
@@ -894,10 +870,10 @@ void DataRecorder::Panel::insertChannel(void)
     if(selectionBox->count())
         {
             lButton->setEnabled(true);
-            if(!fileNameEdit->text().isEmpty())
-                {
+            // if(!folderNameEdit->text().isEmpty())
+            //     {
                     startRecordButton->setEnabled(true);
-                }
+                // }
         }
     else
         {
@@ -944,27 +920,43 @@ void DataRecorder::Panel::addNewTag(void)
     recordStatus->setText("Tagged");
 }
 
+void DataRecorder::Panel::set_filename(void)
+{
+  QString data_dir = root_dir;
+  time_t now=time(0);
+  char day[12];
+  strftime(day, 13, "/%Y_%m_%d/", localtime(&now));
+  data_dir += day;
+  if (QDir(data_dir).exists()==false) {
+    /* insure that data file exists*/
+    QDir().mkdir(data_dir); } 
+  filename = data_dir;
+  char hms[20];
+  strftime(hms, 20, "%H:%M:%S.RTXI.h5", localtime(&now));
+  filename += hms;
+}
+
 // Start recording slot
 void DataRecorder::Panel::startRecordClicked(void)
 {
-    if(fileNameEdit->text().isEmpty())
-        {
-            QMessageBox::critical(
-                this, "Data file not specified.",
-                "Please specify a file to write data to.",
-                QMessageBox::Ok, QMessageBox::NoButton);
-            return;
-        }
+  set_filename();
 
-    StartRecordingEvent RTevent(recording, fifo);
-    RT::System::getInstance()->postEvent(&RTevent);
+  // Post to event queue
+  OpenFileEvent RTevent0(filename, fifo);
+  RT::System::getInstance()->postEvent(&RTevent0);
+
+  StartRecordingEvent RTevent(recording, fifo);
+  RT::System::getInstance()->postEvent(&RTevent);
 }
+
 
 // Stop recording slot
 void DataRecorder::Panel::stopRecordClicked(void)
 {
     StopRecordingEvent RTevent(recording, fifo);
     RT::System::getInstance()->postEvent(&RTevent);
+
+    set_filename();
 }
 
 // Update downsample rate
@@ -993,7 +985,7 @@ void DataRecorder::Panel::customEvent(QEvent *e)
             mutex.lock();
             CustomEvent * event = static_cast<CustomEvent *>(e);
             SetFileNameEditEventData *data = reinterpret_cast<SetFileNameEditEventData *> (event->getData());
-            fileNameEdit->setText(data->filename);
+            folderNameEdit->setText(DataRecorder::Panel::root_dir);
             recordStatus->setText("Ready.");
             if(selectionBox->count())
                 {
@@ -1002,7 +994,7 @@ void DataRecorder::Panel::customEvent(QEvent *e)
             data->done.wakeAll();
             mutex.unlock();
         }
-    else if (e->type() == QDisableGroupsEvent)
+    if (e->type() == QDisableGroupsEvent)
         {
             startRecordButton->setEnabled(false);
             stopRecordButton->setEnabled(true);
@@ -1019,7 +1011,7 @@ void DataRecorder::Panel::customEvent(QEvent *e)
             channelGroup->setEnabled(true);
             sampleGroup->setEnabled(true);
             recordStatus->setText("Ready.");
-            fileSize->setNum(int(QFile(fileNameEdit->text()).size())/1024.0/1024.0);
+            fileSize->setNum(int(QFile(folderNameEdit->text()).size())/1024.0/1024.0);
             trialLength->setNum(double(RT::System::getInstance()->getPeriod()*1e-9* fixedcount));
             count = 0;
         }

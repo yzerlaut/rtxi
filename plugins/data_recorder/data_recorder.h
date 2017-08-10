@@ -111,7 +111,7 @@ public slots:
 
 private slots:
     void buildChannelList(void);
-    void changeDataFile(void);
+    void changeRootFolder(void);
     void insertChannel(void);
     void removeChannel(void);
     void addNewTag(void);
@@ -135,6 +135,8 @@ private:
     long long count;
     long long fixedcount;
     std::vector<std::string> dataTags;
+    void set_filename(void);
+    QString root_dir, filename;
 
     QMutex mutex;
 
@@ -175,7 +177,7 @@ private:
 
     QSpinBox *downsampleSpin;
 
-    QLineEdit *fileNameEdit;
+    QLineEdit *folderNameEdit;
     QLineEdit *timeStampEdit;
     QLineEdit *fileFormatEdit;
     QLabel *fileSizeLbl;
