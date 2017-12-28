@@ -551,10 +551,12 @@ DataRecorder::Panel::Panel(QWidget *parent, size_t buffersize) :
     recordStatus->setFrameStyle(QFrame::Panel | QFrame::Sunken);
     recordStatus->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
     // Keyboard Shortcut
-    startstopKey = new QShortcut(QKeySequence(tr("Ctrl+Space", "")), this);
-    QObject::connect(startstopKey, &QShortcut::activated,
-		     this, &DataRecorder::Panel::StartStopRecordKeyboard);
-
+    startKey = new QShortcut(QKeySequence(tr("Ctrl+Space", "")), this);
+    QObject::connect(startKey, &QShortcut::activated,this, &DataRecorder::Panel::startRecordClicked);
+    // stopKey = new QShortcut(QKeySequence(tr("Ctrl+Shift+Space", "")), this);
+    // QObject::connect(stopKey, SIGNAL(activated(void)),this,SLOT(stopRecordClicked(void)));
+    stopKey = new QShortcut(QKeySequence(tr("Ctrl+Shift+Space", "")), this);
+    QObject::connect(stopKey, &QShortcut::activated, this, &DataRecorder::Panel::stopRecordClicked);
     // Attach layout to group
     buttonGroup->setLayout(buttonLayout);
 
@@ -961,18 +963,6 @@ void DataRecorder::Panel::stopRecordClicked(void)
     RT::System::getInstance()->postEvent(&RTevent);
 
     set_filename();
-}
-
-// Function for keyboard shortcut implementation 
-
-void DataRecorder::Panel::StartStopRecordKeyboard(void)
-{
-  if (DataRecorder::Panel::startRecordButton->isEnabled()) {
-    DataRecorder::Panel::startRecordClicked(); 
-  } 
-  else { 
-    DataRecorder::Panel::stopRecordClicked(); 
-  };
 }
 
 // Update downsample rate
