@@ -35,7 +35,7 @@ MainWindow::MainWindow (void) : QMainWindow(NULL, Qt::Window)
     setCentralWidget(mdiArea);
 
     /* Initialize Window Settings */
-    setWindowTitle("RTXI - Real-time eXperimental Interface");
+    setWindowTitle("RTXI - Real-Time eXperimental Interface");
     setWindowIcon(QIcon("/usr/local/share/rtxi/RTXI-icon.png"));
 
     /* Set Qt Settings Information */

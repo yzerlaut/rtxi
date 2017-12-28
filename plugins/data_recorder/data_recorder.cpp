@@ -550,6 +550,10 @@ DataRecorder::Panel::Panel(QWidget *parent, size_t buffersize) :
     recordStatus->setText("Ready.");
     recordStatus->setFrameStyle(QFrame::Panel | QFrame::Sunken);
     recordStatus->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
+    // Keyboard Shortcut
+    startstopKey = new QShortcut(QKeySequence(tr("Ctrl+Space", "")), this);
+    QObject::connect(startstopKey, &QShortcut::activated,
+		     this, &DataRecorder::Panel::StartStopRecordKeyboard);
 
     // Attach layout to group
     buttonGroup->setLayout(buttonLayout);
@@ -957,6 +961,18 @@ void DataRecorder::Panel::stopRecordClicked(void)
     RT::System::getInstance()->postEvent(&RTevent);
 
     set_filename();
+}
+
+// Function for keyboard shortcut implementation 
+
+void DataRecorder::Panel::StartStopRecordKeyboard(void)
+{
+  if (DataRecorder::Panel::startRecordButton->isEnabled()) {
+    DataRecorder::Panel::startRecordClicked(); 
+  } 
+  else { 
+    DataRecorder::Panel::stopRecordClicked(); 
+  };
 }
 
 // Update downsample rate

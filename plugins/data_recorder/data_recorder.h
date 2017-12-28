@@ -107,6 +107,7 @@ public:
 public slots:
     void startRecordClicked(void);
     void stopRecordClicked(void);
+    void StartStopRecordKeyboard(void);
     void updateDownsampleRate(int);
 
 private slots:
@@ -190,7 +191,8 @@ private:
     QPushButton *startRecordButton;
     QPushButton *stopRecordButton;
     QPushButton *closeButton;
-
+    QShortcut *startstopKey;
+    
     RT::List<Channel> channels;
     std::vector<IO::Block *> blockPtrList;
 }; // class Panel
