@@ -551,22 +551,28 @@ DataRecorder::Panel::Panel(QWidget *parent, size_t buffersize) :
     recordStatus->setFrameStyle(QFrame::Panel | QFrame::Sunken);
     recordStatus->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
     // Keyboard Shortcut
+    stopKey = new QShortcut(QKeySequence(tr("Ctrl+Shift+Space", "")), this);
+    QObject::connect(stopKey, &QShortcut::activated, this, &DataRecorder::Panel::stopRecordClicked);
     startKey = new QShortcut(QKeySequence(tr("Ctrl+Space", "")), this);
     QObject::connect(startKey, &QShortcut::activated,this, &DataRecorder::Panel::startRecordClicked);
     // stopKey = new QShortcut(QKeySequence(tr("Ctrl+Shift+Space", "")), this);
     // QObject::connect(stopKey, SIGNAL(activated(void)),this,SLOT(stopRecordClicked(void)));
-    stopKey = new QShortcut(QKeySequence(tr("Ctrl+Shift+Space", "")), this);
-    QObject::connect(stopKey, &QShortcut::activated, this, &DataRecorder::Panel::stopRecordClicked);
     // Attach layout to group
     buttonGroup->setLayout(buttonLayout);
 
     // Attach child widgets to parent
-    layout->addWidget(channelGroup, 0, 0, 1, 2);
-    layout->addWidget(listGroup, 0, 2, 1, 4);
-    layout->addWidget(stampGroup, 2, 0, 2, 6);
-    layout->addWidget(fileGroup, 4, 0, 1, 6);
-    layout->addWidget(sampleGroup, 5, 0, 1, 6);
-    layout->addWidget(buttonGroup, 6, 0, 1, 6);
+    layout->addWidget(buttonGroup, 0, 0, 1, 6);
+    layout->addWidget(channelGroup, 1, 0, 1, 2);
+    layout->addWidget(listGroup, 1, 2, 1, 4);
+    layout->addWidget(stampGroup, 3, 0, 2, 6);
+    layout->addWidget(fileGroup, 5, 0, 1, 6);
+    layout->addWidget(sampleGroup, 6, 0, 1, 6);
+    // layout->addWidget(channelGroup, 0, 0, 1, 2);
+    // layout->addWidget(listGroup, 0, 2, 1, 4);
+    // layout->addWidget(stampGroup, 2, 0, 2, 6);
+    // layout->addWidget(fileGroup, 4, 0, 1, 6);
+    // layout->addWidget(sampleGroup, 5, 0, 1, 6);
+    // layout->addWidget(buttonGroup, 6, 0, 1, 6);
 
     setLayout(layout);
     setWindowTitle(QString::number(getID()) + " Data Recorder");
