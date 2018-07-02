@@ -18,14 +18,14 @@
 
 #!/bin/bash
 
-echo "----->Running latency test under load. Please wait 30 minutes."
+echo "----->Running latency test with a system frequency of 20 kHz under load. Please wait 10 minutes."
 echo "----->Do not interrupt."
 echo "----->If you do interrupt, stop stressing the system by running:"
 echo "      $ pkill stress"
 echo ""
 
-echo "----->Please enter the frequency (in Hz) that you would like to test, then press enter."
-read SysFreq
+#echo "----->Please enter the frequency (in Hz) that you would like to test, then press enter."
+SysFreq=20000
 
 # Get system information
 DISTRO="$(lsb_release -is) $(lsb_release -rs)"
@@ -57,5 +57,13 @@ else
 	# Start testing
 	sudo /usr/xenomai/bin/./latency -s -h -p $RT_PERIOD -B 1 -H 500000 -T $TIME -g test_rt_histdata.txt | tee test_rt_kernel.log
 fi
+
+# Print out hardware config
+sudo lshw > lswh.txt
+lspci -vvv > lspci.txt
+cat /proc/cpuinfo > cpuinfo.txt
+mkdir test_results
+mv *.txt test_results/.
+mv *.log test_results/.
 
 exit 0
